@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-aurora: aurora 15s linear infinite;
+  --animate-shimmer: shimmer 2.5s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  @keyframes aurora {
+    0% { background-position: 0% 50%, 50% 50%; }
+    50% { background-position: 100% 50%, 50% 100%; }
+    100% { background-position: 0% 50%, 50% 50%; }
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-150%) skewX(-15deg); }
+    100% { transform: translateX(250%) skewX(-15deg); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 15px 0px rgba(99, 102, 241, 0.4); }
+    50% { box-shadow: 0 0 25px 5px rgba(99, 102, 241, 0.7); }
+  }
+}
+
+body {
+  background-color: #030712; /* Deep dark base for VFX to pop */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none; /* Prevents native mobile bounce for a more native app feel */
+}
+
+/* Base hardware acceleration for heavy VFX */
+.gpu-accel {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}

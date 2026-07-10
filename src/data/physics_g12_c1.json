@@ -1,0 +1,46 @@
+{
+  "subject": "Physics",
+  "grade": 12,
+  "chapterNumber": 1,
+  "title": "Thermodynamics",
+  "sections": [
+    {
+      "id": "1.1",
+      "title": "Thermal Equilibrium and Temperature",
+      "content": "Two systems are said to be in thermal equilibrium if there is no net flow of heat energy between them when they are brought into thermal contact.",
+      "localization": {
+        "am": {
+          "title": "የሙቀት አማካኝ ሚዛን እና ሙቀት",
+          "content": "ሁለት ሲስተሞች በሙቀት ንክኪ ውስጥ በሚሆኑበት ጊዜ በመካከላቸው የተጣራ የሙቀት ኃይል ፍሰት ከሌለ በሙቀት አማካኝ ሚዛን ላይ ናቸው ይባላሉ።"
+        },
+        "om": {
+          "title": "Madaallii Ho'aa fi Hoo'ina",
+          "content": "Sirnoonni lama yoo wal-tuqaa ho'aa keessa jiraatanii fi dhangala'aan ho'aa isaan gidduu hin jiru ta'e, madaallii ho'aa keessa jiru jedhamu."
+        }
+      },
+"keywords": [
+  {
+    "word": "thermal equilibrium",
+    "translations": {
+      "am": "የሙቀት አማካኝ ሚዛን",
+      "om": "Madaallii Ho'aa"
+    },
+    "definitions": {
+      "en": "A state where two connected objects reach the same temperature and stop exchanging heat.",
+      "am": "ሁለት የተገናኙ አካላት ተመሳሳይ የሙቀት መጠን ላይ የሚደርሱበት እና ሙቀት መለዋወጥ የሚያቆሙበት ሁኔታ።",
+      "om": "Haala wantoonni lama walitti qabaman ho'a walfakkaataa irra ga'anii fi ho'a wal jijjiiruu itti dhaaban."
+    }
+  }
+],
+      "eueeQuestions": [
+        {
+          "year": "2015 E.C.",
+          "question": "When two systems are in thermal equilibrium, which macroscopic property must be identical?",
+          "options": ["A) Pressure", "B) Volume", "C) Temperature", "D) Mass"],
+          "correctAnswer": "C",
+          "explanation": "By definition, temperature is the property that determines thermal equilibrium."
+        }
+      ]
+    }
+  ]
+}
