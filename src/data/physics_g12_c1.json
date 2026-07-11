@@ -7,7 +7,7 @@
     {
       "id": "1.1",
       "title": "Thermal Equilibrium and Temperature",
-      "content": "Two systems are said to be in thermal equilibrium if there is no net flow of heat energy between them when they are brought into thermal contact.",
+      "content": "Two systems Thermal equilibrium are said to be in thermal equilibrium if there is no net flow of heat energy between them when they are brought into thermal contact.",
       "localization": {
         "am": {
           "title": "የሙቀት አማካኝ ሚዛን እና ሙቀት",
@@ -18,6 +18,7 @@
           "content": "Sirnoonni lama yoo wal-tuqaa ho'aa keessa jiraatanii fi dhangala'aan ho'aa isaan gidduu hin jiru ta'e, madaallii ho'aa keessa jiru jedhamu."
         }
       },
+
 "keywords": [
   {
     "word": "thermal equilibrium",
@@ -29,6 +30,42 @@
       "en": "A state where two connected objects reach the same temperature and stop exchanging heat.",
       "am": "ሁለት የተገናኙ አካላት ተመሳሳይ የሙቀት መጠን ላይ የሚደርሱበት እና ሙቀት መለዋወጥ የሚያቆሙበት ሁኔታ።",
       "om": "Haala wantoonni lama walitti qabaman ho'a walfakkaataa irra ga'anii fi ho'a wal jijjiiruu itti dhaaban."
+    }
+  },
+  {
+    "word": "heat",
+    "translations": {
+      "am": "ሙቀት",
+      "om": "Ho'a"
+    },
+    "definitions": {
+      "en": "The transfer of thermal energy between objects due to a temperature difference.",
+      "am": "በሙቀት መጠን ልዩነት ምክንያት በሁለት አካላት መካከል የሚተላለፍ ኃይል።",
+      "om": "Anniisaa sababa garaagarummaa ho'iinsaatiin qaamolee gidduutti darbu."
+    }
+  },
+  {
+    "word": "energy",
+    "translations": {
+      "am": "ኃይል (ኢነርጂ)",
+      "om": "Anniisaa"
+    },
+    "definitions": {
+      "en": "The capacity to do work or cause physical change.",
+      "am": "ስራ የመስራት ወይም አካላዊ ለውጥ የማምጣት አቅም።",
+      "om": "Dandeettii hojii hojjechuu ykn jijjiirama qaamaa fiduu."
+    }
+  },
+  {
+    "word": "thermal contact",
+    "translations": {
+      "am": "የሙቀት ግንኙነት",
+      "om": "Wal-qunnamtii ho'aa"
+    },
+    "definitions": {
+      "en": "A condition where two or more objects are able to exchange heat with each other.",
+      "am": "ሁለት ወይም ከዚያ በላይ የሆኑ አካላት እርስ በርስ ሙቀት መለዋወጥ የሚችሉበት ሁኔታ።",
+      "om": "Haala qaamoleen lama ykn isaa ol ho'a waliif dabarsuu itti danda'an."
     }
   }
 ],
