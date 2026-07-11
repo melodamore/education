@@ -26,6 +26,15 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Extreme Battery Mode Overrides */
+html.extreme-battery-mode {
+  filter: grayscale(1);
+}
+html.extreme-battery-mode * {
+  animation: none !important;
+  transition: none !important;
+}
+
 .gpu-accel {
   transform: translateZ(0);
   will-change: transform, opacity;

@@ -1,26 +1,37 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Edit3, Sigma, X, Type, Paintbrush, Trash2, Camera, Box, ScanLine } from 'lucide-react';
+import { Search, Edit3, Sigma, X, Type, Paintbrush, Trash2, Camera, Box, ScanLine, Battery, BatteryWarning, Mic, Send } from 'lucide-react';
+import { useBattery } from '../contexts/BatteryContext';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { performOCR } from '../services/ocrService';
+import { transcribeAudio } from '../services/voiceService';
+import { culturalAnalogies } from '../data/analogies';
+import { ARDeskLab } from './ARDeskLab';
+import { P2PSyncService } from '../services/p2pSync';
 
 const snapPhysics = { type: "spring", stiffness: 800, damping: 35, mass: 0.5 } as const;
 
 export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (chapterId: string) => void }) {
   const [activeTool, setActiveTool] = useState<'search' | 'notepad' | 'hud' | 'ocr' | 'ar' | null>(null);
+  const { isBatteryModeActive, toggleBatteryMode } = useBattery();
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [analogyResult, setAnalogyResult] = useState<{ topic: string; analogyEn: string; analogyAm: string } | null>(null);
   
   // Notepad State
   const [noteMode, setNoteMode] = useState<'keyboard' | 'draw'>('keyboard');
   const [noteText, setNoteText] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   // OCR Scanner State
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'found'>('idle');
-
-  // AR Lab State
-  const [arTilt, setArTilt] = useState({ x: 0, y: 0 });
+  const [scannedFormula, setScannedFormula] = useState('');
 
   // Cross-indexed mock data
   const mockSearchIndex = [
@@ -33,16 +44,6 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
     item.am.includes(searchQuery) ||
     item.om.toLowerCase().includes(searchQuery.toLowerCase())
   ) : [];
-
-  // AR Lab Gyroscope Listener
-  useEffect(() => {
-    if (activeTool !== 'ar') return;
-    const handleTilt = (e: DeviceOrientationEvent) => {
-      setArTilt({ x: e.beta || 0, y: e.gamma || 0 });
-    };
-    window.addEventListener('deviceorientation', handleTilt);
-    return () => window.removeEventListener('deviceorientation', handleTilt);
-  }, [activeTool]);
 
   // Notepad Drawing Logic
   useEffect(() => {
@@ -83,10 +84,101 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
     if (canvasRef.current) canvasRef.current.getContext('2d')?.beginPath();
   };
 
+  const broadcastP2PNote = async () => {
+    setIsBroadcasting(true);
+    try {
+      let notesData = '';
+      if (noteMode === 'keyboard') {
+        notesData = noteText;
+      } else if (canvasRef.current) {
+        notesData = canvasRef.current.toDataURL('image/png');
+      }
+
+      if (!notesData) {
+        setIsBroadcasting(false);
+        return;
+      }
+
+      const payload = await P2PSyncService.serializePayload('g12-phys-c1', notesData);
+      await P2PSyncService.mockBroadcast(payload);
+    } catch (error) {
+      console.error('Failed to broadcast note', error);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          try {
+            const transcript = await transcribeAudio(audioBlob);
+            setSearchQuery(transcript.trim());
+
+            const lowerTranscript = transcript.toLowerCase();
+            let matchedAnalogy = null;
+            for (const key of Object.keys(culturalAnalogies)) {
+              if (lowerTranscript.includes(key)) {
+                matchedAnalogy = culturalAnalogies[key];
+                break;
+              }
+            }
+            setAnalogyResult(matchedAnalogy || null);
+
+          } catch (error) {
+            console.error('Transcription failed', error);
+          }
+
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (err) {
+        console.error('Microphone access denied', err);
+      }
+    }
+  };
+
   // OCR Scan Action
-  const runOCRScan = () => {
-    setScanStatus('scanning');
-    setTimeout(() => setScanStatus('found'), 2500);
+  const runOCRScan = async () => {
+    try {
+      setScanStatus('scanning');
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera
+      });
+
+      if (image.base64String) {
+        const text = await performOCR(`data:image/${image.format};base64,${image.base64String}`);
+        setScannedFormula(text.trim() || '$$ \\Delta U = Q - W $$');
+        setScanStatus('found');
+        setSearchQuery(text.trim());
+      } else {
+        setScanStatus('idle');
+      }
+    } catch (error) {
+      console.error('Camera or OCR failed:', error);
+      setScanStatus('idle');
+    }
   };
 
   const closeTool = () => {
@@ -97,6 +189,7 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
   return (
     <>
       <div className="fixed right-4 bottom-24 z-40 flex flex-col space-y-3 pointer-events-auto">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={toggleBatteryMode} className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border ${isBatteryModeActive ? 'bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-slate-900 text-amber-500 border-slate-800'}`}>{isBatteryModeActive ? <BatteryWarning className="w-5 h-5" /> : <Battery className="w-5 h-5" />}</motion.button>
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setActiveTool('ar')} className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-indigo-400"><Box className="w-5 h-5" /></motion.button>
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setActiveTool('ocr')} className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg border border-slate-800"><Camera className="w-5 h-5" /></motion.button>
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setActiveTool('search')} className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg border border-slate-800"><Search className="w-5 h-5" /></motion.button>
@@ -119,16 +212,14 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
 
               {/* 1. AR Desk Lab */}
               {activeTool === 'ar' && (
-                <div className="flex-1 flex flex-col items-center justify-center perspective-[1000px] overflow-hidden">
-                  <p className="text-xs font-black tracking-widest uppercase text-gray-400 mb-12">Tilt phone to inspect 3D Model</p>
-                  <motion.div className="w-48 h-48 relative preserve-3d transition-transform duration-75" style={{ transform: `rotateX(${-arTilt.x}deg) rotateY(${arTilt.y}deg)` }}>
-                    <div className="absolute inset-0 border-4 border-indigo-500 bg-indigo-500/20 backdrop-blur-sm transform translate-z-24 flex items-center justify-center"><span className="font-black text-indigo-700 text-2xl">H₂O</span></div>
-                    <div className="absolute inset-0 border-4 border-indigo-500 bg-indigo-500/20 backdrop-blur-sm transform -translate-z-24 flex items-center justify-center text-white font-black opacity-30">BACK</div>
-                    <div className="absolute inset-0 border-4 border-indigo-500 bg-indigo-500/20 backdrop-blur-sm transform rotate-y-90 translate-z-24" />
-                    <div className="absolute inset-0 border-4 border-indigo-500 bg-indigo-500/20 backdrop-blur-sm transform -rotate-y-90 translate-z-24" />
-                    <div className="absolute inset-0 border-4 border-indigo-500 bg-indigo-500/20 backdrop-blur-sm transform rotate-x-90 translate-z-24" />
-                    <div className="absolute inset-0 border-4 border-indigo-500 bg-indigo-500/20 backdrop-blur-sm transform -rotate-x-90 translate-z-24" />
-                  </motion.div>
+                <div className="flex-1 flex flex-col perspective-[1000px] overflow-hidden">
+                  {!isBatteryModeActive ? (
+                    <ARDeskLab />
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center p-6 text-center text-gray-500 font-bold border-2 border-dashed border-gray-200 rounded-2xl">
+                      AR Desk Lab is disabled while Extreme Battery Mode is active.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -147,8 +238,8 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
                   {scanStatus === 'found' && (
                     <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl text-center">
                       <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Extraction Match Found</p>
-                      <p className="text-2xl font-bold text-gray-900 font-serif">$$ \Delta U = Q - W $$</p>
-                      <button onClick={() => { onSearchSelect('g12-phys-c1'); closeTool(); }} className="mt-4 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm">Jump to Thermodynamics Concept</button>
+                      <p className="text-xl font-bold text-gray-900 font-serif break-words">{scannedFormula}</p>
+                      <button onClick={() => { setActiveTool('search'); }} className="mt-4 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm">Search Extracted Text</button>
                     </motion.div>
                   )}
                 </div>
@@ -157,9 +248,21 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
               {/* 3. Tri-Lingual Search */}
               {activeTool === 'search' && (
                 <div className="flex-1 flex flex-col space-y-4">
-                  <div className="relative">
-                    <input type="text" placeholder="Search English, አማርኛ, Oromoo..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-100 px-4 py-3.5 rounded-xl border-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-gray-900" />
+                  <div className="relative flex items-center space-x-2">
+                    <input type="text" placeholder="Search English, አማርኛ, Oromoo..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 bg-gray-100 px-4 py-3.5 rounded-xl border-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-gray-900" />
+                    <button onClick={toggleRecording} className={`p-3.5 rounded-xl transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-indigo-100 text-indigo-600'}`}>
+                      <Mic className="w-5 h-5" />
+                    </button>
                   </div>
+
+                  {analogyResult && (
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl shadow-sm">
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Cultural Analogy: {analogyResult.topic}</p>
+                      <p className="text-sm font-medium text-gray-800 mb-2">{analogyResult.analogyEn}</p>
+                      <p className="text-sm font-medium text-gray-800 font-serif">{analogyResult.analogyAm}</p>
+                    </div>
+                  )}
+
                   <div className="flex-1 overflow-y-auto space-y-2">
                     {filteredResults.map((res, idx) => (
                       <button key={idx} onClick={() => { onSearchSelect(res.id); closeTool(); }} className="w-full text-left p-4 bg-gray-50 rounded-xl border border-gray-100 flex justify-between items-center active:bg-indigo-50 transition-colors">
@@ -170,7 +273,7 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
                         <span className="text-[10px] bg-indigo-100 text-indigo-700 font-black px-2 py-1 rounded-md uppercase">{res.category}</span>
                       </button>
                     ))}
-                    {searchQuery && filteredResults.length === 0 && (
+                    {searchQuery && filteredResults.length === 0 && !analogyResult && (
                       <div className="text-center p-6 text-gray-400 font-bold text-sm">No results found in any language.</div>
                     )}
                   </div>
@@ -180,9 +283,14 @@ export default function OverlayControls({ onSearchSelect }: { onSearchSelect: (c
               {/* 4. Notepad Everywhere */}
               {activeTool === 'notepad' && (
                 <div className="flex-1 flex flex-col space-y-4">
-                  <div className="flex bg-gray-100 p-1 rounded-xl">
-                    <button onClick={() => setNoteMode('keyboard')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg flex items-center justify-center space-x-1 transition-all ${noteMode === 'keyboard' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}><Type className="w-4 h-4"/><span>Type</span></button>
-                    <button onClick={() => setNoteMode('draw')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg flex items-center justify-center space-x-1 transition-all ${noteMode === 'draw' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}><Paintbrush className="w-4 h-4"/><span>Sketch</span></button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex bg-gray-100 p-1 rounded-xl flex-1 mr-4">
+                      <button onClick={() => setNoteMode('keyboard')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg flex items-center justify-center space-x-1 transition-all ${noteMode === 'keyboard' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}><Type className="w-4 h-4"/><span>Type</span></button>
+                      <button onClick={() => setNoteMode('draw')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg flex items-center justify-center space-x-1 transition-all ${noteMode === 'draw' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}><Paintbrush className="w-4 h-4"/><span>Sketch</span></button>
+                    </div>
+                    <button onClick={broadcastP2PNote} disabled={isBroadcasting} className={`p-3 rounded-xl transition-colors shadow-sm ${isBroadcasting ? 'bg-emerald-100 text-emerald-600 animate-pulse' : 'bg-emerald-600 text-white'}`}>
+                      <Send className="w-5 h-5" />
+                    </button>
                   </div>
                   {noteMode === 'keyboard' ? (
                     <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Jot down notes, derivations, formulas..." className="flex-1 w-full bg-gray-50 p-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 font-medium text-gray-900 resize-none outline-none" />
