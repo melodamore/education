@@ -21,13 +21,35 @@
 }
 
 body {
-  background-color: #030712; /* Deep dark base for VFX to pop */
+  background-color: #030712;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none; /* Prevents native mobile bounce for a more native app feel */
+  overscroll-behavior-y: none;
 }
 
-/* Base hardware acceleration for heavy VFX */
 .gpu-accel {
   transform: translateZ(0);
   will-change: transform, opacity;
+}
+
+/* New 3D AR Desk Lab Classes */
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.translate-z-24 {
+  transform: translateZ(6rem);
+}
+.-translate-z-24 {
+  transform: translateZ(-6rem);
+}
+.rotate-y-90 {
+  transform: rotateY(90deg);
+}
+.-rotate-y-90 {
+  transform: rotateY(-90deg);
+}
+.rotate-x-90 {
+  transform: rotateX(90deg);
+}
+.-rotate-x-90 {
+  transform: rotateX(-90deg);
 }
