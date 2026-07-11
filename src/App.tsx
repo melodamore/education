@@ -6,6 +6,7 @@ import Diagnostics from './components/Diagnostics';
 import StudyHub from './components/StudyHub';
 import OverlayControls from './components/OverlayControls';
 import { MicroBreakModal } from './components/MicroBreakModal';
+import { BatteryModal } from './components/BatteryModal';
 import physicsData from './data/physics_g12_c1.json';
 
 const snapPhysics = { type: "spring", stiffness: 800, damping: 35, mass: 0.5 } as const;
@@ -63,6 +64,9 @@ export default function App() {
 
       {/* Global micro-break monitor */}
       <MicroBreakModal />
+
+      {/* Battery low prompt modal */}
+      <BatteryModal />
     </MainLayout>
   );
 }
